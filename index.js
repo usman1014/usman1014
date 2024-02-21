@@ -1,394 +1,175 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  ActivityIndicator,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  PermissionsAndroid,
-  BackHandler,
-  Alert,
-  ImageBackground,
-  Modal,
-  RefreshControl,
+
+    Text,
+    View,
+    TextInput,
+    ScrollView,
+    SafeAreaView,
+    TouchableOpacity,
+    Image,
+    Alert,
+    BackHandler,
 } from 'react-native';
 import styles from './styles';
-import firebase from '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import storage from '@react-native-firebase/storage';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import Geolocation from 'react-native-geolocation-service';
-import { Picker } from '@react-native-picker/picker';
+import Icons from 'react-native-vector-icons/FontAwesome5'
+import Icons2 from 'react-native-vector-icons/Entypo'
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { cityList } from '../../Components/Constants/city';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import auth from '@react-native-firebase/auth';
+import string from '../../Components/Constants/LocalizeStrings';
 
-const Home = ({ navigation }) => {
-  const isFocused = useIsFocused();
-  const [list, setList] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const [filteredData, setFilteredData] = useState([]);
-  const [cityInputVisible, setCityInputVisible] = useState(false);
-  const [selectedCity, setSelectedCity] = useState(null);
-  const [recommendedProperties, setRecommendedProperties] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const LoadLocation = async () => {
-      const loc = await AsyncStorage.getItem("LOCATION");
-      setSelectedCity(loc);
-      getData(); // Call getData after updating the state
-    };
-    LoadLocation();
-  }, [isFocused]);
+const Login = ({ navigation }) => {
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    getData();
-    setRefreshing(false);
-  };
+    const [userId, setUserId] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [list, setList] = useState([]);
 
-  const handleLocationPress = () => {
-    setCityInputVisible(true);
-  };
 
-  const handleCitySubmit = (city) => {
-    setSelectedCity(city);
-    AsyncStorage.setItem("LOCATION", city);
-    setCityInputVisible(false);
-  };
 
-  const renderCityInput = () => {
-    return (
-      <Modal
-        animationType="slide"
-        visible={cityInputVisible}
-        transparent >
-        <View style={styles.ModalView}>
-          <Picker
-            mode='dropdown'
-            style={{
-              height: 50,
-              width: '100%',
-              backgroundColor: '#cccccc60',
-              marginBottom: 20
-            }}
-            selectedValue={selectedCity}
-            onValueChange={(itemValue) => setSelectedCity(itemValue)}
-          >
-            {cityList.map((cityList) => (
-              <Picker.Item key={cityList.value} label={cityList.label} value={cityList.value} />
-            ))}
+    const gotoHome = async () => {
+        // await AsyncStorage.setItem('Uid', list);
+        // await AsyncStorage.setItem('EMAIL', email);
+        await AsyncStorage.setItem('LoginKey', JSON.stringify(true));
+        navigation.navigate('Home');
+        setEmail("");
+        setPassword("");
 
-          </Picker>
-          <View style={{ flexDirection: 'row', alignSelf: 'center' }}>
-            <TouchableOpacity onPress={() => handleCitySubmit(selectedCity)}
-              style={styles.SubmitButton}>
-              <Text style={{ color: '#fff' }}>Submit</Text>
-            </TouchableOpacity>
+    }
 
-            <TouchableOpacity onPress={() => setCityInputVisible(false)}
-              style={styles.CancelButton}>
-              <Text style={{ color: '#228b22' }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
+    const LoginButton = async () => {
+        try {
+            // Check if email and password are not empty or null
+            if (!email || !password) {
+                Alert.alert('Message', 'Please enter both email and password');
+                return;
+            }
 
-  const getData = () => {
-    firebase
-      .database()
-      .ref(`posts/`)
-      .on('value', (snapshot) => {
-        const data = snapshot.val();
+            const userCredential = await auth().signInWithEmailAndPassword(email, password);
+            const user = userCredential.user;
 
-        if (data !== null && data !== undefined) {
-          let responselist = Object.values(data) || [];
-          setList(responselist);
+            if (user.emailVerified) {
+                gotoHome();
+            } else {
+                Alert.alert('Message', 'Please verify your email checkout inbox of your email');
+                auth().currentUser.sendEmailVerification()
 
-          // Filter properties based on the selected city (case-insensitive)
-          const recommended = responselist.filter(item =>
-            item.city && item.city.toLowerCase() === selectedCity?.toLowerCase()
-          );
-          setRecommendedProperties(recommended);
-        } else {
-          // Handle the case when data is null or undefined
-          setList([]);
-          setRecommendedProperties([]);
+            }
+        } catch (error) {
+            // Handle login errors
+            // console.error('Login Error:', error.message);
+
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                Alert.alert('Message', 'Invalid email or password!');
+            } else {
+                Alert.alert('Message', 'Login failed. Please try again later.');
+            }
         }
-      });
-  };
+    };
+
+    const HandleBackPress = () => {
+
+        Alert.alert('Exit RentSpot', 'Are you sure you want to exit !',
+            [{
+                text: 'Cancel',
+
+                style: 'cancel',
+            },
+            {
+                text: 'Yes',
+                onPress: () =>
+                    BackHandler.exitApp(),
+
+            },
+            ],
+            {
+                cancelable: false,
+            },);
+        return true;
+
+    }
+    useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', HandleBackPress);
+
+        return () => BackHandler.removeEventListener('hardwareBackPress', HandleBackPress)
+    }, []);
+
+    return (
 
 
-
-  const handleDetailContainer = (item) => {
-    navigation.navigate('PropertyDetail', { selectedItem: item });
-  };
-
-  const handleSearch = (text) => {
-    setSearchText(text);
-    // Filter the data based on the search text
-    const filtered = list.filter((item) =>
-      item.name.toLowerCase().includes(text.toLowerCase())
-    );
-    setFilteredData(filtered);
-  };
-
-  const HandleBackPress = () => {
-    Alert.alert(
-      'Exit RentSpot',
-      'Are you sure you want to exit !',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Yes',
-          onPress: () => BackHandler.exitApp(),
-        },
-      ],
-      {
-        cancelable: false,
-      }
-    );
-    return true;
-  };
-
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      HandleBackPress
-    );
-
-    return () =>
-      BackHandler.removeEventListener('hardwareBackPress', HandleBackPress);
-  }, []);
-
-  const userName = auth().currentUser.displayName;
-  const profilePic = auth().currentUser.photoURL;
-  const mail = auth().currentUser.email;
-
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'center' }}>
-        {profilePic !== null ? (
-          <Image
-            resizeMode='contain'
-            source={{ uri: profilePic }}
-            style={styles.UserImage}
-          />
-        ) : (
-          <Image
-            source={require('../../Assets/man.png')}
-            style={styles.Image1}
-          />
-        )}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            marginHorizontal: wp(3),
-            justifyContent: 'space-between',
-            width: '80%',
-          }}
-        >
-          <View >
-            <Text style={{ margin: 10, fontSize: wp(5), color: '#000', left: wp(3), marginTop: 20,maxWidth:160 }}>
-              {userName}
-            </Text>
-            <Text style={{ fontSize: wp(3.5), left: 20, top: -15,maxWidth:180 }}>{mail}</Text>
-
-          </View>
-          <View style={styles.LocationBox}>
-            <Image
-              source={require('../../Assets/location.png')}
-              style={{ height: 20, width: 20, tintColor: '#228b22',marginHorizontal:6 }} />
-            <TouchableOpacity onPress={() => handleLocationPress()}>
-              <Text style={{ marginHorizontal: 0, fontSize: wp(4),maxWidth:70 }}>
-                {selectedCity === null ? 'Location' : selectedCity}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {cityInputVisible && renderCityInput()}
-      </View>
-      <View
-        style={styles.searchView}
-      >
-        <View
-          style={styles.searchInsideView}
-        >
-          <Icon name='search' size={20} top={12} left={20} />
-          <TextInput
-            style={styles.SearchInput}
-            placeholder='Search'
-            keyboardType='web-search'
-            value={searchText}
-            onChangeText={handleSearch}
-          />
-          <TouchableOpacity
-            style={styles.SearchButton}
-          >
-            <Icon name='filter' color={'#228b22'} size={25} top={12} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Text style={styles.HeadingText}>Featured</Text>
-
-        {searchText ? (
-          <FlatList
-            showsHorizontalScrollIndicator={false}
-            horizontal
-            data={filteredData}
-            renderItem={({ item }) => (
-              <RenderListItem
-                item={item}
-                handleDetailContainer={handleDetailContainer}
-              />
-            )}
-          />
-        ) : list && list.length > 0 ? (
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={list}
-            renderItem={({ item }) => (
-              <RenderListItem
-                item={item}
-                handleDetailContainer={handleDetailContainer}
-              />
-            )}
-          />
-
-        ) : (
-          <View style={{ width: '100%', }}>
-            <Text style={{ textAlign: 'center', top: 50, fontSize: wp(4), fontWeight: '600', marginBottom: 30 }}>
-              Try Reloading or check internet Connection!
-            </Text>
-            <ActivityIndicator size={50} marginTop={50} marginBottom={30  } />
-          </View>
-        )}
-        <View>
-          <Text style={styles.HeadingText}>Recommended</Text>
-          {searchText ? (
-            <FlatList
-              showsHorizontalScrollIndicator={false}
-              horizontal
-              data={filteredData}
-              renderItem={({ item }) => (
-                <RenderListItem
-                  item={item}
-                  handleDetailContainer={handleDetailContainer}
-                />
-              )}
-            />
-          ) : recommendedProperties && recommendedProperties.length > 0 ? (
-
-            <FlatList
-              contentContainerStyle={{ marginBottom: 20 }}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={recommendedProperties}
-              renderItem={({ item }) => (
-                <RenderListItem
-                  item={item}
-                  handleDetailContainer={handleDetailContainer}
-                />
-              )}
-            />
-            
-          ) : (
-            <View style={{ width: '100%',  }}>
-              <Text style={{ textAlign: 'center', fontSize: wp(4), fontWeight: '600', marginBottom: 20 }}>
-                Loading recommended properties in {selectedCity}.
-              </Text>
-              <TouchableOpacity
-                onPress={() => handleLocationPress()}
-                style={{ alignSelf: 'center', width: '50%', padding: 10, backgroundColor: '#fff', elevation: 2, borderRadius: 10 }}>
-                <Text style={{ textAlign: 'center', color: '#228b22', fontSize: wp(3), fontWeight: '500' }}>Change Location</Text>
-              </TouchableOpacity>
-              <Text style={{ textAlign: 'center', fontSize: wp(4), fontWeight: '600', marginVertical: 20 }}>
-                or Reload Screen
-              </Text>
+        <SafeAreaView
+            style={styles.MainView}>
+            <View style={{ width: '100%', height: 60, padding: 10, backgroundColor: '#228b22', justifyContent: 'space-between', flexDirection: 'row' }}>
+                <Text style={{ color: '#fff', fontSize: 20, left: 20, }}>Login</Text>
+                <Text
+                    onPress={() => navigation.navigate('AdminLogin')}
+                    style={{ color: '#ffffff', fontSize: 16, left: -20, lineHeight: 30 }}>{string['Admin Login']}</Text>
             </View>
 
-          )}
-        </View>
-      </ScrollView>
-    </View>
-  );
-};
+            <ScrollView
+                contentContainerStyle={styles.upperView}>
+                <Image
+                    resizeMode='contain'
+                    style={styles.Image}
+                    source={require('../../Assets/logo.png')}>
+                </Image>
 
 
-const RenderListItem = ({ item, handleDetailContainer }) => (
-  <TouchableOpacity
-    style={{ marginBottom: 20 }}
-    onPress={() => handleDetailContainer(item)}>
-    <View style={styles.DetailContainer}>
-      <ImageBackground
-        style={styles.Image}
-        source={{ uri: item.image && item.image.length > 0 ? item.image[0] : null }}
-      >
-        <View style={{ flexDirection: 'row-reverse' }}>
-          <Image
-            style={{ tintColor: '#fff', margin: 15, height: 24, width: 24 }}
-            source={require('../../Assets/heart.png')}
-          />
-        </View>
-        <View
-          style={{
-            backgroundColor: '#228b2290',
-            position: 'absolute',
-            bottom: 0,
-            width: '100%',
-          }}
-        >
-          <View style={styles.TitleContainer}>
-            <View>
-              <Text style={{ color: '#ffffff', left: 10, fontSize: wp(5), fontWeight: '400' }}>
-                {item.name}
-              </Text>
-            </View>
-          </View>
-          <Text style={{ left: 10, fontSize: wp(3.5), color: '#ffffff', maxWidth: 250 }}>{item.address}</Text>
-          <View style={{ marginBottom: 5, flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={{ width: '50%' }}>
-              <Text style={{ color: '#ffffff', left: 10, fontSize: wp(3.2) }}>
-                Price: {item.price} PKR/month
-              </Text>
-            </View>
-            <View
-              style={{
-                width: '40%',
-                flexDirection: 'row',
-                right: 20,
-                justifyContent: 'center',
-              }}
-            >
-              <Image
-                style={{ height: wp(5), width: wp(5), tintColor: 'orange', left: 10 }}
-                source={require('../../Assets/location.png')}
-              />
-              <Text style={{ color: '#ffffff', left: 10, fontSize: wp(3), lineHeight: 20, marginHorizontal: 6 }}>
-                {item.city}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </ImageBackground>
-    </View>
-  </TouchableOpacity>
-);
 
-export default Home;
+                <Text style={styles.HeadingText1}>{string['Login Here']}</Text>
+
+                <View style={styles.InputView}>
+                    <Icons2 name='mail' size={25} color={'#228b22'} />
+                    <TextInput
+                        style={styles.Input}
+                        placeholder={string.Email}
+                        placeholderTextColor={'#00000060'}
+                        value={email}
+                        onChangeText={text => setEmail(text)}
+                    />
+                </View>
+
+
+
+                <View style={styles.InputView}>
+                    <Icons name='lock' size={20} color={'#228b22'} />
+                    <TextInput
+                    secureTextEntry
+                        style={styles.Input}
+                        placeholder={string.Password}
+                        placeholderTextColor={'#00000060'}
+                        value={password}
+                        onChangeText={text => setPassword(text)}
+                    />
+                </View>
+
+                <TouchableOpacity style={styles.ForgetButton}
+                    onPress={() => navigation.navigate('ForgetPassword')}>
+                    <Text style={styles.ForgetButtonText}>{string['Forget Password']}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.Button}
+                    onPress={() => LoginButton()}>
+                    <Text style={styles.ButtonText}>{string['Sign in']}</Text>
+                </TouchableOpacity>
+
+                <View style={styles.Signincontainer}>
+                    <Text style={styles.SignupText}>{string['Dont have an account?']}</Text>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Signup')}
+                    >
+
+                        <Text style={styles.SignupButton}> {string['Sign up']}</Text>
+
+                    </TouchableOpacity>
+                </View>
+
+
+            </ScrollView>
+        </SafeAreaView>
+
+    )
+}
+
+export default Login;
